@@ -19,16 +19,20 @@ package org.zaproxy.zap.extension.ascanrules;
 
 import java.io.IOException;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.httpclient.InvalidRedirectLocationException;
+import org.apache.commons.httpclient.URIException;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.log4j.Logger;
 import org.parosproxy.paros.Constant;
 import org.parosproxy.paros.core.scanner.AbstractAppParamPlugin;
 import org.parosproxy.paros.core.scanner.Alert;
 import org.parosproxy.paros.core.scanner.Category;
+import org.parosproxy.paros.model.Model;
 import org.parosproxy.paros.network.HttpMessage;
 import org.parosproxy.paros.network.HttpStatusCode;
 import org.zaproxy.zap.model.Tech;
@@ -355,7 +359,7 @@ public class TestPathTraversal extends AbstractAppParamPlugin {
             //send the modified message (with a hopefully non-existent filename), and see what we get back
 			try {
 	            sendAndReceive(msg);
-			} catch (SocketException|IllegalStateException|UnknownHostException|IllegalArgumentException ex) {
+			} catch (SocketException|IllegalStateException|UnknownHostException|IllegalArgumentException|InvalidRedirectLocationException|URIException ex) {
 				if (log.isDebugEnabled()) log.debug("Caught " + ex.getClass().getName() + " " + ex.getMessage() + 
 						" when accessing: " + msg.getRequestHeader().getURI().toString());
 				return; //Something went wrong, no point continuing
@@ -386,7 +390,7 @@ public class TestPathTraversal extends AbstractAppParamPlugin {
                     //send the modified message (with the url filename), and see what we get back
         			try {
         	            sendAndReceive(msg);
-        			} catch (SocketException|IllegalStateException|UnknownHostException|IllegalArgumentException ex) {
+        			} catch (SocketException|IllegalStateException|UnknownHostException|IllegalArgumentException|InvalidRedirectLocationException|URIException ex) {
         				if (log.isDebugEnabled()) log.debug("Caught " + ex.getClass().getName() + " " + ex.getMessage() + 
         						" when accessing: " + msg.getRequestHeader().getURI().toString());
         				continue; //Something went wrong, move to the next prefix in the loop
@@ -431,9 +435,19 @@ public class TestPathTraversal extends AbstractAppParamPlugin {
             // this is nice because it means we do not have to guess any file names, and would only require one
             // request to find the vulnerability 
             // but it would be foiled by simple input validation on "..", for instance.
-        } catch (IOException e) {
-            log.warn("Error scanning parameters for Path Traversal: " + e.getMessage(), e);
-        }
+		} catch (SocketTimeoutException ste) {
+			log.warn("A timeout occurred while checking [" + msg.getRequestHeader().getMethod() + "] ["
+					+ msg.getRequestHeader().getURI() + "], parameter [" + param + "] for Path Traversal. "
+					+ "The currently configured timeout is: "
+					+ Integer.toString(Model.getSingleton().getOptionsParam().getConnectionParam().getTimeoutInSecs()));
+			if (log.isDebugEnabled()) {
+				log.debug("Caught " + ste.getClass().getName() + " " + ste.getMessage());
+			}
+		} catch (IOException e) {
+			log.warn("An error occurred while checking [" + msg.getRequestHeader().getMethod() + "] ["
+					+ msg.getRequestHeader().getURI() + "], parameter [" + param + "] for Path Traversal."
+					+ "Caught " + e.getClass().getName() + " " + e.getMessage());
+		}
     }
 
     /**
@@ -457,7 +471,7 @@ public class TestPathTraversal extends AbstractAppParamPlugin {
         // send the modified request, and see what we get back
 		try {
             sendAndReceive(msg);
-		} catch (SocketException|IllegalStateException|UnknownHostException|IllegalArgumentException ex) {
+		} catch (SocketException|IllegalStateException|UnknownHostException|IllegalArgumentException|InvalidRedirectLocationException|URIException ex) {
 			if (log.isDebugEnabled()) log.debug("Caught " + ex.getClass().getName() + " " + ex.getMessage() + 
 					" when accessing: " + msg.getRequestHeader().getURI().toString());
 			return false; //Something went wrong, no point continuing

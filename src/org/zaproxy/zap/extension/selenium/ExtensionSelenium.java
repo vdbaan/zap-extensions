@@ -238,6 +238,10 @@ public class ExtensionSelenium extends ExtensionAdaptor {
         case CHROME:
             return new ChromeDriver(capabilities);
         case FIREFOX:
+            String binaryPath = System.getProperty(SeleniumOptions.FIREFOX_BINARY_SYSTEM_PROPERTY);
+            if (binaryPath != null && !binaryPath.isEmpty()) {
+                capabilities.setCapability(FirefoxDriver.BINARY, binaryPath);
+            }
             return new FirefoxDriver(capabilities);
         case HTML_UNIT:
             return new HtmlUnitDriver(capabilities);
@@ -263,7 +267,7 @@ public class ExtensionSelenium extends ExtensionAdaptor {
             cliArgs.add("--ssl-protocol=any");
             cliArgs.add("--ignore-ssl-errors=yes");
 
-            cliArgs.add("--webdriver-logfile=" + Constant.getZapHome() + "/phantomjsdriver.log");
+            cliArgs.add("--webdriver-logfile=" + Constant.getZapHome() + "phantomjsdriver.log");
             cliArgs.add("--webdriver-loglevel=WARN");
 
             capabilities.setCapability(PhantomJSDriverService.PHANTOMJS_CLI_ARGS, cliArgs);

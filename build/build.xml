@@ -17,8 +17,7 @@
 	<property name="wiki.zapcorehelp.dir" location="../../zap-core-help-wiki" />
 	<!-- This assumes you also have the zaproxy project -->
 	<property name="zap.plugin.dir" location="../../zaproxy/src/plugin" />
-	<!-- This assumes you also have the zaproxy_2.4 project (used for the weekly release -->
-	<property name="zap.download.url" value="https://github.com/zaproxy/zap-extensions/releases/download/2.4" />
+	<property name="zap.download.url" value="https://github.com/zaproxy/zap-extensions/releases/download/2.5" />
 
 	<path id="build.classpath">
 		   <fileset dir="${build.lib.dir}" includes="*.jar"/>
@@ -62,6 +61,7 @@
 			excludes="org/zaproxy/zap/extension/*/files/**,org/zaproxy/zap/extension/*/resources/**">
 			<compilerarg value="-Xlint:all"/>
 			<compilerarg value="-Xlint:-path"/>
+			<compilerarg value="-Xlint:-options"/>
 			<compilerarg value="-Werror"/>
 			<classpath>
 				<fileset dir="${dist.lib.dir}">
@@ -75,6 +75,7 @@
 		<javac srcdir="${test.src}" destdir="${build}" source="${src.version}" target="${src.version}" includeantruntime="false" debug="${debug}" encoding="UTF-8">
 			<compilerarg value="-Xlint:all"/>
 			<compilerarg value="-Xlint:-path"/>
+			<compilerarg value="-Xlint:-options"/>
 			<compilerarg value="-Werror"/>
 			<classpath>
 				<fileset dir="${dist.lib.dir}">
@@ -376,7 +377,7 @@
 		<build-addon name="quickstart" />
 		<build-addon name="reveal" />
 		<build-addon name="saverawmessage" />
-		<build-addon name="selenium" />
+		<build-selenium-addon />
 		<build-addon name="spiderAjax" />
 		<build-addon name="websocket" />
 
@@ -453,6 +454,10 @@
 		<build-deploy-addon name="directorylistv2_3_lc" />
 	</target>
 
+	<target name="deploy-fuzzdb" description="Deploys the FuzzDB add-on">
+		<build-deploy-addon name="fuzzdb" />
+	</target>
+
 	<target name="deploy-gettingStarted" description="deploy the gettingStarted extension">
 		<build-deploy-addon name="gettingStarted" />
 	</target>
@@ -513,8 +518,22 @@
 		<build-deploy-addon name="saverawmessage" />
 	</target>
 
+	<macrodef name="build-selenium-addon" description="Builds Selenium add-on">
+		<sequential>
+			<build-addon name="selenium">
+				<!-- Add the extra classes required -->
+				<jar jarfile="${dist}/${file}" update="true" compress="true">
+					<zipfileset dir="${build}" prefix="">
+						<include name="org/openqa/selenium/phantomjs/**"/>
+					</zipfileset>
+				</jar>
+			</build-addon>
+		</sequential>
+	</macrodef>
+	
 	<target name="deploy-selenium" depends="clean, compile" description="Deploys Selenium add-on">
-		<build-deploy-addon name="selenium" />
+		<build-selenium-addon />
+		<deploy-addon name="selenium" />
 	</target>
 
 	<target name="generate-wiki-selenium" description="Generates the wiki of selenium">

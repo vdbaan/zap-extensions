@@ -59,6 +59,13 @@ public class WebSocketProxyV13 extends WebSocketProxy {
 	}
 
 	/**
+	 * @see WebSocketProxy#WebSocketProxy(Socket, Socket, String, int)
+	 */
+	public WebSocketProxyV13(Socket localSocket, Socket remoteSocket, String targetHost, int targetPort) throws WebSocketException {
+		super(localSocket, remoteSocket, targetHost, targetPort);
+	}
+
+	/**
 	 * @see WebSocketProxy#createWebSocketMessage(InputStream, byte)
 	 */
 	@Override
@@ -406,9 +413,9 @@ public class WebSocketProxyV13 extends WebSocketProxy {
 			}
 			
 			if (isText(opcode)) {
-				logger.info("got text frame payload");
+				logger.debug("got text frame payload");
 			} else if (isBinary(opcode)) {
-				logger.info("got binary frame payload");				
+				logger.debug("got binary frame payload");				
 			} else {
 				if (opcode == OPCODE_CLOSE) {
 					if (payload.length > 1) {

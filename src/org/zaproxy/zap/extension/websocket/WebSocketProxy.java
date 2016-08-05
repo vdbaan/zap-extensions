@@ -34,9 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
-import org.parosproxy.paros.db.DatabaseException;
 import org.parosproxy.paros.model.HistoryReference;
-import org.parosproxy.paros.network.HttpMalformedHeaderException;
 
 /**
  * Intercepts WebSocket communication and forwards frames. Code is inspired by
@@ -176,14 +174,47 @@ public abstract class WebSocketProxy {
 	 * @param extensions Map of negotiated extensions, null or empty list.
 	 * @throws WebSocketException
 	 * @return Version specific proxy object.
+	 * @see #create(String, Socket, Socket, String, int, String, Map)
 	 */
 	public static WebSocketProxy create(String version, Socket localSocket, Socket remoteSocket, String subprotocol, Map<String, String> extensions) throws WebSocketException {
+		return create(
+				version,
+				localSocket,
+				remoteSocket,
+				remoteSocket.getInetAddress().getHostName(),
+				remoteSocket.getPort(),
+				subprotocol,
+				extensions);
+	}
+
+	/**
+	 * Factory method to create appropriate version.
+	 * 
+	 * @param version Protocol version.
+	 * @param localSocket Channel from browser to ZAP.
+	 * @param remoteSocket Channel from ZAP to server (possibly a proxy).
+	 * @param targetHost the hostname of the target (remote) machine
+	 * @param targetPort the port of the target (remote) machine
+	 * @param subprotocol Provide null if there is no subprotocol specified.
+	 * @param extensions Map of negotiated extensions, null or empty list.
+	 * @throws WebSocketException
+	 * @return Version specific proxy object.
+	 * @see #create(String, Socket, Socket, String, Map)
+	 */
+	public static WebSocketProxy create(
+			String version,
+			Socket localSocket,
+			Socket remoteSocket,
+			String targetHost,
+			int targetPort,
+			String subprotocol,
+			Map<String, String> extensions) throws WebSocketException {
 		logger.debug("Create WebSockets proxy for version '" + version + "'.");
 		WebSocketProxy wsProxy = null;
 		
 		// TODO: provide a registry for WebSocketProxy versions
 		if (version.equals("13")) {
-			wsProxy = new WebSocketProxyV13(localSocket, remoteSocket);
+			wsProxy = new WebSocketProxyV13(localSocket, remoteSocket, targetHost, targetPort);
 			
 			if (subprotocol != null) {
 				// TODO: do something with this subprotocol
@@ -206,9 +237,25 @@ public abstract class WebSocketProxy {
 	 * turn on this proxy.
 	 * 
 	 * @param localSocket Channel from local machine to ZAP.
-	 * @param remoteSocket Channel from ZAP to remote machine.
+	 * @param remoteSocket Channel from ZAP to remote/target machine.
+	 * @see #WebSocketProxy(Socket, Socket, String, int)
 	 */
 	public WebSocketProxy(Socket localSocket, Socket remoteSocket) {
+		this(localSocket, remoteSocket, remoteSocket.getInetAddress().getHostName(), remoteSocket.getPort());
+	}
+
+	/**
+	 * Create a WebSocket on a channel. You need to call
+	 * {@link WebSocketProxy#startListeners(ExecutorService, InputStream)} to
+	 * turn on this proxy.
+	 * 
+	 * @param localSocket Channel from local machine to ZAP.
+	 * @param remoteSocket Channel from ZAP to remote machine (possibly a proxy).
+	 * @param targetHost the hostname of the target (remote) machine
+	 * @param targetPort the port of the target (remote) machine
+	 * @see #WebSocketProxy(Socket, Socket)
+	 */
+	public WebSocketProxy(Socket localSocket, Socket remoteSocket, String targetHost, int targetPort) {
 		if (localSocket == null) {
 			isClientMode = true;
 		} else {
@@ -224,8 +271,8 @@ public abstract class WebSocketProxy {
 		// create unique identifier for this WebSocket connection
 		channelId = channelIdGenerator.incrementAndGet();
 		messageIdGenerator = new AtomicInteger(0);
-		host = remoteSocket.getInetAddress().getHostName();
-		port = remoteSocket.getPort();
+		host = targetHost;
+		port = targetPort;
 		
 		isForwardOnly = false;
 	}
@@ -683,15 +730,7 @@ public abstract class WebSocketProxy {
 		
 		HistoryReference handshakeRef = getHandshakeReference();
 		if (handshakeRef != null) {
-			try {
-				dto.url = handshakeRef.getHttpMessage().getRequestHeader().getURI().toString();
-			} catch (HttpMalformedHeaderException e) {
-				dto.url = "";
-				logger.error("HttpMessage for WebSockets-handshake not found!");
-			} catch (DatabaseException e) {
-				dto.url = "";
-				logger.error("HttpMessage for WebSockets-handshake not found!");
-			}
+			dto.url = handshakeRef.getURI().toString();
 			dto.historyId = handshakeRef.getHistoryId();
 		} else {
 			dto.url = "";
@@ -714,7 +753,9 @@ public abstract class WebSocketProxy {
 	 * @throws IOException
 	 */
 	public void sendAndNotify(WebSocketMessageDTO msg) throws IOException {
-		logger.info("send custom message");
+		if (logger.isDebugEnabled()) {
+			logger.debug("sending custom message");
+		}
 		WebSocketMessage message = createWebSocketMessage(msg);
 		
 		OutputStream out;
@@ -733,7 +774,9 @@ public abstract class WebSocketProxy {
 	}
 
 	public boolean send(WebSocketMessageDTO msg) throws IOException {
-		logger.info("send custom message");
+		if (logger.isDebugEnabled()) {
+			logger.debug("sending custom message");
+		}
 		WebSocketMessage message = createWebSocketMessage(msg);
 
 		OutputStream out;
